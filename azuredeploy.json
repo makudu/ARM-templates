@@ -1,0 +1,172 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "vNetName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the vNet"
+            }        
+        },
+        "subnetName": {
+            "type": "string",
+            "metadata": {
+                "description": "subnet name"
+            }
+        },
+        "compName": {
+            "type": "string",
+            "metadata": {
+                "description": "system name"
+            }
+        },
+        "nicName": {
+            "type": "string",
+            "metadata": {
+                "description": "nic card"
+            }
+        },
+        "staticIP": {
+            "type": "string",
+            "metadata": {
+                "description": "static ip for dc"
+            }
+        },
+        "virtualMachineSize": {
+            "type": "string",
+            "metadata": {
+                "description": "vm size"
+            }
+        },
+        "nsgName": {
+            "type": "string",
+            "metadata": {
+                "description": "NSG name"
+            }
+        },
+        "storageAcc": {
+            "type": "string",
+            "metadata": {
+                "description": "SA name"
+            }
+        }
+    },
+    "functions": [],
+    "variables": {},
+    "resources": [
+        {
+            "name": "[toLower(parameters('storageAcc'))]",
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2019-06-01",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "windowsVM1 Storage Account"
+            },
+            "sku": {
+                "name": "Standard_LRS"
+            },
+            "kind": "Storage"
+        },
+        {
+            "name": "[parameters('nsgName')]",
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2018-08-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "nsgRule1",
+                        "properties": {
+                            "description": "description",
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "3389",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 100,
+                            "direction": "Inbound"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "[parameters('nicName')]",
+            "type": "Microsoft.Network/networkInterfaces",
+            "apiVersion": "2019-11-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                //"[resourceId('Microsoft.Network/virtualNetworks', parameters('vNetName'))]"
+            ],
+            "tags": {
+                "displayName": "windowsVM1 Network Interface"
+            },
+            "properties": {
+               "ipConfigurations": [
+                   {
+                       "name": "ipconfig1",
+                       "properties": {
+                           "privateIPAllocationMethod": "Static",
+                           "privateIPAddress": "[parameters('staticIP')]",
+                           "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vNetName'), parameters('subnetName'))]"
+                            }
+                          }
+                    }
+                   
+                   
+               ]
+            }
+        },
+        {
+            "name": "windowsVM1",
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2019-07-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAcc')))]",
+                "[resourceId('Microsoft.Network/networkInterfaces', parameters('nicName'))]"
+            ],
+            "tags": {
+                "displayName": "w2016srv"
+            },
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "[parameters('virtualMachineSize')]"
+                },
+                "osProfile": {
+                    "computerName": "[parameters('compName')]",
+                    "adminUsername": "makudu",
+                    "adminPassword": "Mahesh@12345"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "MicrosoftWindowsServer",
+                        "offer": "WindowsServer",
+                        "sku": "2016-Datacenter",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "name": "[concat(parameters('compName'),'-','osDisk')]",
+                        "caching": "ReadWrite",
+                        "createOption": "FromImage"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', parameters('nicName'))]"
+                        }
+                    ]
+                },
+                "diagnosticsProfile": {
+                    "bootDiagnostics": {
+                        "enabled": false                        
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}
