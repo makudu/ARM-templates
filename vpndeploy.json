@@ -1,0 +1,93 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {},
+    "functions": [],
+    "variables": {},
+    "resources": [
+        {
+            "name": "makudu-LNG",
+            "type": "Microsoft.Network/localNetworkGateways",
+            "apiVersion": "2019-11-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "localNetworkAddressSpace": {
+                    "addressPrefixes": [
+                        "192.168.10.0/24"
+                    ]
+                },
+                "gatewayIpAddress": "99.235.190.123"
+            }
+        },
+        {
+            "name": "pipForVPN",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2019-11-01",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "publicIPAddress1"
+            },
+            "properties": {
+                "publicIPAllocationMethod": "Dynamic",
+                "dnsSettings": {
+                    "domainNameLabel": "dnsname1"
+                }
+            }
+        },
+      {
+          "name": "azure-to-makuduHome",
+          "type": "Microsoft.Network/virtualNetworkGateways",
+          "apiVersion": "2019-11-01",
+          "location": "[resourceGroup().location]",
+          "dependsOn": [
+              "[resourceId('Microsoft.Network/publicIPAddresses', 'pipForVPN')]"
+              //"[resourceId('Microsoft.Network/virtualNetworks', 'Cloud-VNet')]"
+          ],
+          "properties": {
+              "ipConfigurations": [
+                  {
+                      "name": "vnetGatewayConfig",
+                      "properties": {
+                          "privateIPAllocationMethod": "Dynamic",
+                          "subnet": {
+                              "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'Cloud-VNet', 'GatewaySubnet')]"
+                          },
+                          "publicIPAddress": {
+                              "id": "[resourceId('Microsoft.Network/publicIPAddresses', 'pipForVPN')]"
+                          }
+                      }
+                  }
+              ],
+              "sku": {
+                    "name": "Basic",
+                    "tier": "Basic"
+                },
+                "gatewayType": "Vpn",
+                "vpnType": "RouteBased",
+                "enableBgp": false
+          }
+      },
+      {
+          "name": "azuretohome-connection",
+          "type": "Microsoft.Network/connections",
+          "apiVersion": "2019-11-01",
+          "location": "[resourceGroup().location]",
+          "dependsOn": [
+              "[resourceId('Microsoft.Network/virtualNetworkGateways', 'azure-to-makuduHome')]",
+              "[resourceId('Microsoft.Network/localNetworkGateways', 'makudu-LNG')]"
+          ],
+          "properties": {
+              "virtualNetworkGateway1": {
+                  "id": "[resourceId('Microsoft.Network/virtualNetworkGateways', 'azure-to-makuduHome')]"
+              },
+              "localNetworkGateway2": {
+                  "id": "[resourceId('Microsoft.Network/localNetworkGateways', 'makudu-LNG')]"
+              },
+              "connectionType": "IPsec",
+              "routingWeight": 0,
+              "sharedKey": "sharedkey"
+          }
+      }
+    ],
+    "outputs": {}
+}

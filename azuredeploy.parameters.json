@@ -1,0 +1,30 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "vNetName": {
+            "value": "Cloud-VNet" 
+        },
+        "subnetName": {
+            "value": "MGMT" 
+        },
+        "compName": {
+            "value": "w2016srv" 
+        },
+        "staticIP": {
+            "value": "10.3.2.5" 
+        },
+        "virtualMachineSize": {
+            "value": "Standard_B2s" 
+        },
+        "nsgName": {
+            "value": "Remote-nsg" 
+        },
+        "nicName": {
+            "value": "w2016-Nic" 
+        },
+        "storageAcc": {
+            "value": "makuduw2016srvstore" 
+        }
+    }
+}

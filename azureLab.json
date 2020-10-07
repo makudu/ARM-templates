@@ -1,0 +1,327 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "vNetName": {
+            "defaultValue": "Cloud-VNet",
+            "type": "String"
+        },
+        "subnetName": {
+            "type": "string",
+            "metadata": {
+                "description": "subnet name"
+            }
+        },
+        "compName": {
+            "type": "string",
+            "metadata": {
+                "description": "system name"
+            }
+        },
+        "nicName": {
+            "type": "string",
+            "metadata": {
+                "description": "nic card"
+            }
+        },
+        "staticIP": {
+            "type": "string",
+            "metadata": {
+                "description": "static ip for dc"
+            }
+        },
+        "virtualMachineSize": {
+            "type": "string",
+            "metadata": {
+                "description": "vm size"
+            }
+        },
+        "nsgName": {
+            "type": "string",
+            "metadata": {
+                "description": "NSG name"
+            }
+        },
+        "storageAcc": {
+            "type": "string",
+            "metadata": {
+                "description": "SA name"
+            }
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2020-05-01",
+            "name": "[parameters('vNetName')]",
+            "location": "canadaeast",
+            "tags": {
+                "displayName": "virtualNetwork1"
+            },
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.3.0.0/22"
+                    ]
+                },
+                "dhcpOptions": {
+                    "dnsServers": [
+                        "192.168.10.10"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "MGMT",
+                        "properties": {
+                            "addressPrefix": "10.3.2.0/24",
+                            "serviceEndpoints": [],
+                            "delegations": [],
+                            "privateEndpointNetworkPolicies": "Enabled",
+                            "privateLinkServiceNetworkPolicies": "Enabled"
+                        }
+                    },
+                    {
+                        "name": "GatewaySubnet",
+                        "properties": {
+                            "addressPrefix": "10.3.1.0/27",
+                            "serviceEndpoints": [],
+                            "delegations": [],
+                            "privateEndpointNetworkPolicies": "Enabled",
+                            "privateLinkServiceNetworkPolicies": "Enabled"
+                        }
+                    }
+                ],
+                "virtualNetworkPeerings": [],
+                "enableDdosProtection": false,
+                "enableVmProtection": false
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks/subnets",
+            "apiVersion": "2020-05-01",
+            "name": "[concat(parameters('vNetName'), '/MGMT')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vNetName'))]"
+            ],
+            "properties": {
+                "addressPrefix": "10.3.2.0/24",
+                "serviceEndpoints": [],
+                "delegations": [],
+                "privateEndpointNetworkPolicies": "Enabled",
+                "privateLinkServiceNetworkPolicies": "Enabled"
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks/subnets",
+            "apiVersion": "2020-05-01",
+            "name": "[concat(parameters('vNetName'), '/GatewaySubnet')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vNetName'))]"
+            ],
+            "properties": {
+                "addressPrefix": "10.3.1.0/27",
+                "serviceEndpoints": [],
+                "delegations": [],
+                "privateEndpointNetworkPolicies": "Enabled",
+                "privateLinkServiceNetworkPolicies": "Enabled"
+            }
+        },
+        {
+            "name": "[toLower(parameters('storageAcc'))]",
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2019-06-01",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "windowsVM1 Storage Account"
+            },
+            "sku": {
+                "name": "Standard_LRS"
+            },
+            "kind": "Storage"
+        },
+        {
+            "name": "[parameters('nsgName')]",
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2018-08-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "nsgRule1",
+                        "properties": {
+                            "description": "description",
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "3389",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 100,
+                            "direction": "Inbound"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "[parameters('nicName')]",
+            "type": "Microsoft.Network/networkInterfaces",
+            "apiVersion": "2019-11-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vNetName'))]"
+            ],
+            "tags": {
+                "displayName": "windowsVM1 Network Interface"
+            },
+            "properties": {
+               "ipConfigurations": [
+                   {
+                       "name": "ipconfig1",
+                       "properties": {
+                           "privateIPAllocationMethod": "Static",
+                           "privateIPAddress": "[parameters('staticIP')]",
+                           "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vNetName'), parameters('subnetName'))]"
+                            }
+                          }
+                    }
+                   
+                   
+               ]
+            }
+        },
+        {
+            "name": "windowsVM1",
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2019-07-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', toLower(parameters('storageAcc')))]",
+                "[resourceId('Microsoft.Network/networkInterfaces', parameters('nicName'))]"
+            ],
+            "tags": {
+                "displayName": "w2016srv"
+            },
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "[parameters('virtualMachineSize')]"
+                },
+                "osProfile": {
+                    "computerName": "[parameters('compName')]",
+                    "adminUsername": "makudu",
+                    "adminPassword": "Mahesh@12345"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "MicrosoftWindowsServer",
+                        "offer": "WindowsServer",
+                        "sku": "2016-Datacenter",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "name": "[concat(parameters('compName'),'-','osDisk')]",
+                        "caching": "ReadWrite",
+                        "createOption": "FromImage"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', parameters('nicName'))]"
+                        }
+                    ]
+                },
+                "diagnosticsProfile": {
+                    "bootDiagnostics": {
+                        "enabled": false                        
+                    }
+                }
+            }
+        },
+        {
+            "name": "makudu-LNG",
+            "type": "Microsoft.Network/localNetworkGateways",
+            "apiVersion": "2019-11-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "localNetworkAddressSpace": {
+                    "addressPrefixes": [
+                        "192.168.10.0/24"
+                    ]
+                },
+                "gatewayIpAddress": "99.235.190.123"
+            }
+        },
+        {
+            "name": "pipForVPN",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2019-11-01",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "publicIPAddress1"
+            },
+            "properties": {
+                "publicIPAllocationMethod": "Dynamic",
+                "dnsSettings": {
+                    "domainNameLabel": "dnsname1"
+                }
+            }
+        },
+      {
+          "name": "azure-to-makuduHome",
+          "type": "Microsoft.Network/virtualNetworkGateways",
+          "apiVersion": "2019-11-01",
+          "location": "[resourceGroup().location]",
+          "dependsOn": [
+              "[resourceId('Microsoft.Network/publicIPAddresses', 'pipForVPN')]",
+              "[resourceId('Microsoft.Network/virtualNetworks', 'Cloud-VNet')]"
+          ],
+          "properties": {
+              "ipConfigurations": [
+                  {
+                      "name": "vnetGatewayConfig",
+                      "properties": {
+                          "privateIPAllocationMethod": "Dynamic",
+                          "subnet": {
+                              "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'Cloud-VNet', 'GatewaySubnet')]"
+                          },
+                          "publicIPAddress": {
+                              "id": "[resourceId('Microsoft.Network/publicIPAddresses', 'pipForVPN')]"
+                          }
+                      }
+                  }
+              ],
+              "sku": {
+                    "name": "Basic",
+                    "tier": "Basic"
+                },
+                "gatewayType": "Vpn",
+                "vpnType": "RouteBased",
+                "enableBgp": false
+          }
+      },
+      {
+          "name": "azuretohome-connection",
+          "type": "Microsoft.Network/connections",
+          "apiVersion": "2019-11-01",
+          "location": "[resourceGroup().location]",
+          "dependsOn": [
+              "[resourceId('Microsoft.Network/virtualNetworkGateways', 'azure-to-makuduHome')]",
+              "[resourceId('Microsoft.Network/localNetworkGateways', 'makudu-LNG')]"
+          ],
+          "properties": {
+              "virtualNetworkGateway1": {
+                  "id": "[resourceId('Microsoft.Network/virtualNetworkGateways', 'azure-to-makuduHome')]"
+              },
+              "localNetworkGateway2": {
+                  "id": "[resourceId('Microsoft.Network/localNetworkGateways', 'makudu-LNG')]"
+              },
+              "connectionType": "IPsec",
+              "routingWeight": 0,
+              "sharedKey": "sharedkey"
+          }
+      }
+    ]
+}
